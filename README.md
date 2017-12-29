@@ -49,3 +49,5 @@ index.json # special file describing columns (json)
 name.json # data for name column (json)
 count.i8 # data for count column (binary)
 ```
+
+data files can be viewed with [arrayviewer](https://github.com/waylonflinn/arrayviewer)
