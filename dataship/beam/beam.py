@@ -55,7 +55,7 @@ def read(root_dir):
         index = json.loads(f.read())
         return load(root_dir, index)
 
-def write(root_dir, columns):
+def write(root_dir, columns, compact=True):
     """Write data columns to the given directory.
     Args:
         root_dir: the path to the directory to write the columns to
@@ -71,7 +71,10 @@ def write(root_dir, columns):
         if(type(column_data) == list and type(column_data[0]) == str):
             filename = column_name + ".json"
             with open(root_dir + filename, "wt") as f:
-                f.write(json.dumps(column_data))
+                if(compact):
+                    f.write(json.dumps(column_data))
+                else:
+                    f.write(json.dumps(column_data, indent=1))
         elif(type(column_data) == np.ndarray):
             dtype = column_data.dtype.name
             if(dtype in reverse_extension_map):
@@ -88,7 +91,10 @@ def write(root_dir, columns):
         index[column_name] = filename
 
     with open(root_dir + "index.json", 'wt') as f:
-        f.write(json.dumps(index))
+        if(compact):
+            f.write(json.dumps(index))
+        else:
+            f.write(json.dumps(index, indent=1))
 
 def dataframe(columns):
     """Turn a dictionary of columns into a Pandas dataframe.

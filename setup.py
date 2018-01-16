@@ -3,7 +3,7 @@ setup(
   name = 'dataship',
   packages = ['dataship', 'dataship.beam'],
   install_requires=['numpy', 'pandas'],
-  version = '0.2.2',
+  version = '0.2.3',
   description = 'Lightweight tools for reading, writing and storing data, locally and over the internet.',
   author = 'Waylon Flinn',
   author_email = 'waylonflinn@gmail.com',
