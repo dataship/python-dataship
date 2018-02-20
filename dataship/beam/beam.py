@@ -26,6 +26,9 @@ def load(root_dir, index):
     Returns:
         a dictionary mapping column names to arrays of data
     """
+    if(not root_dir.endswith('/')):
+        root_dir += "/"
+
     columns = {}
 
     # iterate through items in the index dictionary
@@ -43,15 +46,25 @@ def load(root_dir, index):
 
     return columns
 
-def read(root_dir):
+def read(input_path):
     """Look for an index in the specified directory and load it's data columns.
     Args:
-        root_dir: the path to the directory containing the data columns and index.
+        input_path: the path to the directory containing the data columns and
+            index, or the path to the index.
 
     Returns:
         a dictionary mapping column names to arrays of data
     """
-    with open(root_dir + "index.json", "rt") as f:
+
+    if(not input_path.endswith("index.json")):
+        if(not input_path.endswith('/')):
+            input_path += "/"
+        root_dir = input_path
+        input_path += "index.json"
+    else:
+        root_dir = os.path.dirname(input_path) + "/"
+
+    with open(input_path, "rt") as f:
         index = json.loads(f.read())
         return load(root_dir, index)
 
