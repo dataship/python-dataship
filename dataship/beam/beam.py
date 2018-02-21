@@ -42,7 +42,7 @@ def load(root_dir, index):
         elif(ext in EXTENSION_MAP):
             dtype = EXTENSION_MAP[ext]
             with open(root_dir + file_name, 'rb') as binary_file:
-                columns[column_name] = np.fromstring(binary_file.read(), dtype=dtype)
+                columns[column_name] = np.frombuffer(binary_file.read(), dtype=dtype)
 
     return columns
 
