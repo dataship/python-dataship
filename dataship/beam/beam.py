@@ -44,7 +44,7 @@ def load(root_dir, index):
             with open(root_dir + file_name, 'rb') as binary_file:
                 columns[column_name] = np.frombuffer(binary_file.read(), dtype=dtype)
 
-    return columns
+    return {"columns": columns}
 
 def read(input_path):
     """Look for an index in the specified directory and load it's data columns.
@@ -109,10 +109,11 @@ def write(root_dir, columns, compact=True):
         else:
             f.write(json.dumps(index, indent=1))
 
-def dataframe(columns):
+def dataframe(results):
     """Turn a dictionary of columns into a Pandas dataframe.
     """
 
+    columns = results["columns"]
     column_dict = {}
     for column_name, data in columns.items():
         column_dict[column_name] = pd.Series(data)
