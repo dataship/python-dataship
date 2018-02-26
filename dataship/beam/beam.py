@@ -69,7 +69,7 @@ def read(input_path):
         index = json.loads(f.read())
         return load(root_dir, index)
 
-def write(root_dir, columns, keys, compact=True):
+def write(root_dir, columns, keys=None, compact=True):
     """Write data columns to the given directory.
     Args:
         root_dir: the path to the directory to write the columns to
@@ -110,7 +110,7 @@ def write(root_dir, columns, keys, compact=True):
         else:
             f.write(json.dumps(index, indent=1))
 
-def dataframe(columns, keys):
+def to_dataframe(columns, keys=None):
     """Turn a dictionary of columns into a Pandas dataframe.
     """
 
@@ -119,3 +119,16 @@ def dataframe(columns, keys):
         column_dict[column_name] = pd.Series(data)
 
     return pd.DataFrame(column_dict)
+
+def from_dataframe(df):
+    """Turn a dataframe into a dictionary of columns, suitable writing."""
+    index = {}
+
+    for column in df.columns:
+        values = df[column].values
+        if(values.dtype == "object"):
+            index[column] = values.tolist()
+        else:
+            index[column] = values
+
+    return index
