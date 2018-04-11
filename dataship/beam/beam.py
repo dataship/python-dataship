@@ -14,7 +14,15 @@ EXTENSION_MAP = {
     ".f64" : "float64"
 }
 
+KEYED_EXTENSION_MAP = {
+    ".k8" : "uint8",
+    ".k16" : "uint16",
+    ".k32" : "uint32"
+}
+
 reverse_extension_map = {value : key for key, value in EXTENSION_MAP.items()}
+
+reverse_keyed_extension_map = {value : key for key, value in KEYED_EXTENSION_MAP.items()}
 
 def load(root_dir, index):
     """Load data columns located at the given path using the given index.
@@ -44,6 +52,14 @@ def load(root_dir, index):
             dtype = EXTENSION_MAP[ext]
             with open(root_dir + file_name, 'rb') as binary_file:
                 columns[column_name] = np.frombuffer(binary_file.read(), dtype=dtype)
+        elif(ext in KEYED_EXTENSION_MAP):
+            dtype = KEYED_EXTENSION_MAP[ext]
+            if keys is None:
+                keys = {}
+            with open(root_dir + file_name, 'rb') as binary_file:
+                columns[column_name] = np.frombuffer(binary_file.read(), dtype=dtype)
+            with open(root_dir + file_name + ".key", 'rt') as key_file:
+                keys[column_name] = json.loads(key_file.read())
 
     return (columns, keys)
 
@@ -69,7 +85,7 @@ def read(input_path):
         index = json.loads(f.read())
         return load(root_dir, index)
 
-def write(root_dir, columns, keys, compact=True):
+def write(root_dir, columns, keys=None, compact=True):
     """Write data columns to the given directory.
     Args:
         root_dir: the path to the directory to write the columns to
@@ -82,6 +98,9 @@ def write(root_dir, columns, keys, compact=True):
     index = {}
 
     for column_name, column_data in columns.items():
+        filename = None
+        has_key = keys is not None and column_name in keys
+
         if(type(column_data) == list and type(column_data[0]) == str):
             filename = column_name + ".json"
             with open(root_dir + filename, "wt") as f:
@@ -91,7 +110,9 @@ def write(root_dir, columns, keys, compact=True):
                     f.write(json.dumps(column_data, indent=1))
         elif(type(column_data) == np.ndarray):
             dtype = column_data.dtype.name
-            if(dtype in reverse_extension_map):
+            if(has_key and dtype in reverse_keyed_extension_map):
+                ext = reverse_keyed_extension_map[dtype]
+            elif(dtype in reverse_extension_map):
                 ext = reverse_extension_map[dtype]
             else:
                 raise Exception("No mapping for dtype '" + dtype + "'")
@@ -102,7 +123,18 @@ def write(root_dir, columns, keys, compact=True):
         else:
             raise Exception("Unknown type for column '" + column_name +"': " + str(type(column_data)))
 
+
         index[column_name] = filename
+
+        # write key file, if present
+        if has_key:
+            key_data = keys[column_name]
+            with open(root_dir + filename + ".key", 'wt') as f:
+                if(compact):
+                    f.write(json.dumps(key_data))
+                else:
+                    f.write(json.dumps(key_data, indent=1))
+
 
     with open(root_dir + "index.json", 'wt') as f:
         if(compact):
