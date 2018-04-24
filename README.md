@@ -50,11 +50,10 @@ name.json # data for name column (json)
 count.i8 # data for count column (binary)
 ```
 
-data files can be viewed with [arrayviewer](https://github.com/waylonflinn/arrayviewer)
-
-
 You can also serialize an existing Pandas Dataframe like this,
 ```python
 columns = beam.from_dataframe(frame)
 beam.write("./toeses", columns)
 ```
+
+Data files can be viewed from the command line with [arrayviewer](https://github.com/waylonflinn/arrayviewer)
