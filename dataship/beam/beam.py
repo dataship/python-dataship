@@ -101,7 +101,27 @@ def write(root_dir, columns, keys=None, compact=True):
         filename = None
         has_key = keys is not None and column_name in keys
 
-        if(type(column_data) == list and type(column_data[0]) == str):
+        if(has_key):
+            key_data = keys[column_name]
+        else:
+            key_data = None
+
+        filename = write_column(root_dir, column_name, column_data, key_data, compact)
+
+        index[column_name] = filename
+
+
+    with open(root_dir + "index.json", 'wt') as f:
+        if(compact):
+            f.write(json.dumps(index))
+        else:
+            f.write(json.dumps(index, indent=1))
+
+def write_column(root_dir , column_name, column_data, key_data=None, compact=True):
+
+        has_key = (key_data is not None)
+        
+        if(type(column_data) == list and (type(column_data[0]) == str or type(column_data[0] == int))):
             filename = column_name + ".json"
             with open(root_dir + filename, "wt") as f:
                 if(compact):
@@ -124,23 +144,15 @@ def write(root_dir, columns, keys=None, compact=True):
             raise Exception("Unknown type for column '" + column_name +"': " + str(type(column_data)))
 
 
-        index[column_name] = filename
-
         # write key file, if present
         if has_key:
-            key_data = keys[column_name]
             with open(root_dir + filename + ".key", 'wt') as f:
                 if(compact):
                     f.write(json.dumps(key_data))
                 else:
                     f.write(json.dumps(key_data, indent=1))
 
-
-    with open(root_dir + "index.json", 'wt') as f:
-        if(compact):
-            f.write(json.dumps(index))
-        else:
-            f.write(json.dumps(index, indent=1))
+        return filename
 
 def to_dataframe(columns, keys=None):
     """Turn a dictionary of columns into a Pandas dataframe.
