@@ -14,6 +14,8 @@ EXTENSION_MAP = {
     ".f64" : "float64"
 }
 
+COMPRESS_EXTENSION = ".lz4"
+
 KEYED_EXTENSION_MAP = {
     ".k8" : "uint8",
     ".k16" : "uint16",
@@ -42,26 +44,50 @@ def load(root_dir, index):
 
     # iterate through items in the index dictionary
     for column_name, file_name in index.items():
-        # get extension
-        basepath, ext = os.path.splitext(file_name)
 
-        if(ext == ".json"):
-            with open(root_dir + file_name, "rt") as json_file:
-                columns[column_name] = json.loads(json_file.read())
-        elif(ext in EXTENSION_MAP):
-            dtype = EXTENSION_MAP[ext]
-            with open(root_dir + file_name, 'rb') as binary_file:
-                columns[column_name] = np.frombuffer(binary_file.read(), dtype=dtype)
-        elif(ext in KEYED_EXTENSION_MAP):
-            dtype = KEYED_EXTENSION_MAP[ext]
-            if keys is None:
+        column, key = read_column(root_dir, file_name)
+
+        if(key is not None):
+            if(keys is None):
                 keys = {}
-            with open(root_dir + file_name, 'rb') as binary_file:
-                columns[column_name] = np.frombuffer(binary_file.read(), dtype=dtype)
-            with open(root_dir + file_name + ".key", 'rt') as key_file:
-                keys[column_name] = json.loads(key_file.read())
+            keys[column_name] = key
+
+        columns[column_name] = column
 
     return (columns, keys)
+
+def read_column(root_dir, file_name):
+    basepath, ext = os.path.splitext(file_name)
+
+    compress = (ext == COMPRESS_EXTENSION)
+    if(compress):
+        basepath, ext = os.path.splitext(file_name[:-len(COMPRESS_EXTENSION)])
+
+
+    column = None
+    key = None
+
+    if(ext == ".json"):
+        with open(root_dir + file_name, "rt") as json_file:
+            column = json.loads(json_file.read())
+    elif(ext in EXTENSION_MAP):
+        dtype = EXTENSION_MAP[ext]
+        with open(root_dir + file_name, 'rb') as binary_file:
+            if(compress):
+                column = np.frombuffer(lz4.frame.decompress(binary_file.read()), dtype=dtype)
+            else:
+                column = np.frombuffer(binary_file.read(), dtype=dtype)
+    elif(ext in KEYED_EXTENSION_MAP):
+        dtype = KEYED_EXTENSION_MAP[ext]
+        with open(root_dir + file_name, 'rb') as binary_file:
+            if(compress):
+                column = np.frombuffer(lz4.frame.decompress(binary_file.read()), dtype=dtype)
+            else:
+                column = np.frombuffer(binary_file.read(), dtype=dtype)
+        with open(root_dir + file_name + ".key", 'rt') as key_file:
+            key = json.loads(key_file.read())
+
+    return column, key
 
 def read(input_path):
     """Look for an index in the specified directory and load it's data columns.
@@ -117,10 +143,12 @@ def write(root_dir, columns, keys=None, compact=True):
         else:
             f.write(json.dumps(index, indent=1))
 
-def write_column(root_dir , column_name, column_data, key_data=None, compact=True):
+import lz4.frame
+
+def write_column(root_dir , column_name, column_data, key_data=None, compact=True, compress=False, compress_level=3):
 
         has_key = (key_data is not None)
-        
+
         if(type(column_data) == list and (type(column_data[0]) == str or type(column_data[0] == int))):
             filename = column_name + ".json"
             with open(root_dir + filename, "wt") as f:
@@ -138,8 +166,13 @@ def write_column(root_dir , column_name, column_data, key_data=None, compact=Tru
                 raise Exception("No mapping for dtype '" + dtype + "'")
 
             filename = column_name + ext
+            if(compress):
+                filename += COMPRESS_EXTENSION
             with open(root_dir + filename, 'wb') as f:
-                f.write(column_data.tostring())
+                if(compress):
+                    f.write(lz4.frame.compress(column_data.tostring(), compress_level))
+                else:
+                    f.write(column_data.tostring())
         else:
             raise Exception("Unknown type for column '" + column_name +"': " + str(type(column_data)))
 
