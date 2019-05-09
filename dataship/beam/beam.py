@@ -1,4 +1,5 @@
 import os
+from functools import reduce
 import json
 import numpy as np
 import pandas as pd
@@ -57,6 +58,7 @@ def load(root_dir, index):
 
     return (columns, keys)
 
+
 def read_column(root_dir, file_name):
     basepath, ext = os.path.splitext(file_name)
 
@@ -64,6 +66,10 @@ def read_column(root_dir, file_name):
     if(compress):
         basepath, ext = os.path.splitext(file_name[:-len(COMPRESS_EXTENSION)])
 
+    shape = None
+    if('.' in basepath):
+        tensor_extensions = basepath[basepath.find('.'):]
+        shape = parse_tensor_extensions(tensor_extensions)
 
     column = None
     key = None
@@ -78,6 +84,10 @@ def read_column(root_dir, file_name):
                 column = np.frombuffer(lz4framed.decompress(binary_file.read()), dtype=dtype)
             else:
                 column = np.frombuffer(binary_file.read(), dtype=dtype)
+
+            if(shape is not None):
+                column.shape = get_final_shape(column, shape)
+
     elif(ext in KEYED_EXTENSION_MAP):
         dtype = KEYED_EXTENSION_MAP[ext]
         with open(root_dir + file_name, 'rb') as binary_file:
@@ -165,7 +175,12 @@ def write_column(root_dir , column_name, column_data, key_data=None, compact=Tru
             else:
                 raise Exception("No mapping for dtype '" + dtype + "'")
 
-            filename = column_name + ext
+            if(len(column_data.shape) > 1):
+                filename = column_name + get_tensor_extensions(column_data.shape) + ext
+            else:
+                filename = column_name + ext
+
+
             if(compress):
                 filename += COMPRESS_EXTENSION
             with open(root_dir + filename, 'wb') as f:
@@ -186,6 +201,39 @@ def write_column(root_dir , column_name, column_data, key_data=None, compact=Tru
                     f.write(json.dumps(key_data, indent=1))
 
         return filename
+
+def get_tensor_extensions(shape):
+
+    return '.' + '.'.join('t{}'.format(size) for size in shape[1:])
+
+def parse_tensor_extensions(tensor_extensions):
+    extension_list = tensor_extensions.split('.t')
+
+    if(extension_list[0] != ''):
+        raise ValueError("Tensor extensions malformed. ({})".format(tensor_extensions))
+
+    extension_list = extension_list[1:]
+
+    # can we parse extensions as integers?
+    try:
+        shape = tuple(int(extension) for extension in extension_list)
+    except:
+        raise ValueError("Tensor extensions malformed. ({})".format(tensor_extensions))
+
+    return shape
+
+def get_final_shape(column, shape):
+
+    object_size = reduce(lambda total, x : total * x, shape)
+
+    if(len(column) % object_size != 0):
+        raise ValueError("Tensor dimensions ({}) not consistent with array size ({}).".format(object_size, len(column)))
+    object_count = len(column) // object_size
+
+    shape = (object_count, ) + shape
+
+    return shape
+
 
 def to_dataframe(columns, keys=None):
     """Turn a dictionary of columns into a Pandas dataframe.
