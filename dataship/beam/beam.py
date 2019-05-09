@@ -2,6 +2,7 @@ import os
 import json
 import numpy as np
 import pandas as pd
+import lz4framed # multithread compatible, threads must be implemented by user
 
 EXTENSION_MAP = {
     ".i8" : "int8",
@@ -74,14 +75,14 @@ def read_column(root_dir, file_name):
         dtype = EXTENSION_MAP[ext]
         with open(root_dir + file_name, 'rb') as binary_file:
             if(compress):
-                column = np.frombuffer(lz4.frame.decompress(binary_file.read()), dtype=dtype)
+                column = np.frombuffer(lz4framed.decompress(binary_file.read()), dtype=dtype)
             else:
                 column = np.frombuffer(binary_file.read(), dtype=dtype)
     elif(ext in KEYED_EXTENSION_MAP):
         dtype = KEYED_EXTENSION_MAP[ext]
         with open(root_dir + file_name, 'rb') as binary_file:
             if(compress):
-                column = np.frombuffer(lz4.frame.decompress(binary_file.read()), dtype=dtype)
+                column = np.frombuffer(lz4framed.decompress(binary_file.read()), dtype=dtype)
             else:
                 column = np.frombuffer(binary_file.read(), dtype=dtype)
         with open(root_dir + file_name + ".key", 'rt') as key_file:
@@ -143,7 +144,6 @@ def write(root_dir, columns, keys=None, compact=True):
         else:
             f.write(json.dumps(index, indent=1))
 
-import lz4.frame
 
 def write_column(root_dir , column_name, column_data, key_data=None, compact=True, compress=False, compress_level=3):
 
@@ -170,7 +170,7 @@ def write_column(root_dir , column_name, column_data, key_data=None, compact=Tru
                 filename += COMPRESS_EXTENSION
             with open(root_dir + filename, 'wb') as f:
                 if(compress):
-                    f.write(lz4.frame.compress(column_data.tostring(), compress_level))
+                    f.write(lz4framed.compress(column_data.tostring(), level=compress_level))
                 else:
                     f.write(column_data.tostring())
         else:
